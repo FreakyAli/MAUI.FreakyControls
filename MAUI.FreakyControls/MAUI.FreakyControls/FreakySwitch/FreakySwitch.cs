@@ -14,8 +14,11 @@ public class FreakySwitch : ContentView, IDisposable
 
     private static readonly Color outlineColor = IsiOS ? Colors.LightGray : Colors.Black;
     private static readonly float outlineWidth = IsAndroid ? 6.0f : 3.0f;
+    private static readonly float checkMarkWidth = 3.0f;
     private static readonly double width = 54.0d;
     private static readonly double height = 32.0d;
+    private static readonly int animationDuration = 250; // ms
+    private static readonly float thumbOffSizeFactor = IsAndroid ? (2.0f / 3.0f) : 1.0f;
 
     private float animationProgress;
     private bool isAnimating;
@@ -47,7 +50,12 @@ public class FreakySwitch : ContentView, IDisposable
 
         //60 frames per sec... 60frames/sec
         const int frameRate = 60;
-        const double totalDuration = 0.25; // 250 ms
+
+        double durationInSeconds = AnimationDuration / 1000.0;
+        if (durationInSeconds <= 0)
+        {
+            durationInSeconds = 0.001d;
+        }
 
         // get the inverse of the framerate... (1/60) seconds/frame i.e. frame duration
         double frameDuration = 1.0 / frameRate;
@@ -55,7 +63,7 @@ public class FreakySwitch : ContentView, IDisposable
         while (animationProgress < 1.0f)
         {
             //update the percentage of the animation process
-            animationProgress += (float)(frameDuration / totalDuration);
+            animationProgress += (float)(frameDuration / durationInSeconds);
             skiaView.InvalidateSurface();
             await Task.Delay(TimeSpan.FromSeconds(frameDuration));
         }
@@ -177,6 +185,24 @@ public class FreakySwitch : ContentView, IDisposable
             IsAntialias = true
         };
         canvas.DrawRoundRect(thumbRect, thumbWidth / 2, thumbWidth / 2, thumbPaint); // Maintain circular shape
+
+        if (ShowCheckMark)
+        {
+            // Draw the checkmark
+            var checkmarkPath = new SKPath();
+            checkmarkPath.MoveTo(thumbLeft + thumbWidth * 0.25f, thumbTop + thumbWidth * 0.5f);
+            checkmarkPath.LineTo(thumbLeft + thumbWidth * 0.45f, thumbTop + thumbWidth * 0.7f);
+            checkmarkPath.LineTo(thumbLeft + thumbWidth * 0.75f, thumbTop + thumbWidth * 0.3f);
+
+            var checkmarkPaint = new SKPaint
+            {
+                Color = CheckMarkColor.ToSKColor(),
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = CheckMarkWidth
+            };
+            canvas.DrawPath(checkmarkPath, checkmarkPaint);
+        }
     }
 
     private void DrawOffState(SKCanvas canvas, SKRect bounds)
@@ -197,10 +223,10 @@ public class FreakySwitch : ContentView, IDisposable
         var thumbTop = bounds.Top + ((bounds.Height - thumbWidth) / 2); // Center the thumb vertically
         var thumbRect = SKRect.Create(thumbLeft, thumbTop, thumbWidth, thumbWidth); // Make the thumb circular
 
-        if (IsAndroid)
+        if (ThumbOffSizeFactor > 0 && ThumbOffSizeFactor < 1)
         {
-            // Reduce thumb size on Android in the off state to 2/3 of its original size
-            var reducedThumbWidth = thumbWidth * (2.0f / 3.0f);
+            // Reduce the thumb size in the off state to a fraction of its original size, as specified by ThumbOffSizeFactor
+            var reducedThumbWidth = thumbWidth * ThumbOffSizeFactor;
             thumbLeft += (thumbWidth - reducedThumbWidth) / 2;
             thumbTop += (thumbWidth - reducedThumbWidth) / 2;
             thumbRect = SKRect.Create(thumbLeft, thumbTop, reducedThumbWidth, reducedThumbWidth);
@@ -224,6 +250,36 @@ public class FreakySwitch : ContentView, IDisposable
             StrokeWidth = outlineWidth
         };
         canvas.DrawRoundRect(outlineBounds, outlineBounds.Height / 2, outlineBounds.Height / 2, outlinePaint);
+    }
+
+    public int AnimationDuration
+    {
+        get { return (int)GetValue(AnimationDurationProperty); }
+        set { SetValue(AnimationDurationProperty, value); }
+    }
+
+    public float ThumbOffSizeFactor
+    {
+        get { return (float)GetValue(ThumbOffSizeFactorProperty); }
+        set { SetValue(ThumbOffSizeFactorProperty, value); }
+    }
+
+    public bool ShowCheckMark
+    {
+        get { return (bool)GetValue(ShowCheckMarkProperty); }
+        set { SetValue(ShowCheckMarkProperty, value); }
+    }
+
+    public float CheckMarkWidth
+    {
+        get { return (float)GetValue(CheckMarkWidthProperty); }
+        set { SetValue(CheckMarkWidthProperty, value); }
+    }
+
+    public Color CheckMarkColor
+    {
+        get { return (Color)GetValue(CheckMarkColorProperty); }
+        set { SetValue(CheckMarkColorProperty, value); }
     }
 
     public Color OutlineColor
@@ -287,6 +343,41 @@ public class FreakySwitch : ContentView, IDisposable
     }
 
     public event EventHandler<ToggledEventArgs> Toggled;
+
+    public static readonly BindableProperty AnimationDurationProperty =
+        BindableProperty.Create(
+             nameof(AnimationDuration),
+             typeof(int),
+             typeof(FreakySwitch),
+             animationDuration);
+
+    public static readonly BindableProperty ThumbOffSizeFactorProperty =
+        BindableProperty.Create(
+             nameof(ThumbOffSizeFactor),
+             typeof(float),
+             typeof(FreakySwitch),
+             thumbOffSizeFactor);
+
+    public static readonly BindableProperty ShowCheckMarkProperty =
+        BindableProperty.Create(
+          nameof(ShowCheckMark),
+          typeof(bool),
+          typeof(FreakySwitch),
+          false);
+
+    public static readonly BindableProperty CheckMarkWidthProperty =
+        BindableProperty.Create(
+          nameof(CheckMarkWidth),
+          typeof(float),
+          typeof(FreakySwitch),
+          checkMarkWidth);
+
+    public static readonly BindableProperty CheckMarkColorProperty =
+        BindableProperty.Create(
+            nameof(CheckMarkColor),
+            typeof(Color),
+            typeof(FreakySwitch),
+            Colors.White);
 
     public static readonly BindableProperty OutlineColorProperty =
         BindableProperty.Create(
